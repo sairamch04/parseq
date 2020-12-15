@@ -17,12 +17,12 @@ task fatJar(type: Jar) {
     attributes("Created-By": "Gradle",
         "Version": version,
         "Build-JDK": JavaVersion.current())
-    attributes 'Main-Class': 'com.linkedin.parseq.PerfLarge'
+    attributes 'Main-Class': 'com.linkedin.parseq.CompletableFuturesPerfLarge'
   }
 }
 
 task executeJava(type: JavaExec) {
-  main = "com.linkedin.parseq.PerfLarge"
+  main = "com.linkedin.parseq.CompletableFuturesPerfLarge"
   classpath = sourceSets.main.runtimeClasspath
 }
 

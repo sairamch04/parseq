@@ -16,35 +16,25 @@
 
 package com.linkedin.parseq;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Exchanger;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
+import com.linkedin.parseq.batching.BatchingSupport;
 import org.HdrHistogram.Base64CompressedHistogramSerializer;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.parseq.batching.BatchingSupport;
-import com.linkedin.parseq.trace.ShallowTrace;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.*;
 
 
-/**
- * @author Jaroslaw Odzga (jodzga@linkedin.com)
- */
-public abstract class AbstractBenchmark {
+public abstract class AbstractCompletableFuturesBenchmark {
 
   public static final String BENCHMARK_TEST_RESULTS_LOG_PREFIX = "Benchmark test results -> ";
 
-  private static final Logger LOG = LoggerFactory.getLogger(AbstractBenchmark.class);
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractCompletableFuturesBenchmark.class);
 
   private final BatchingSupport _batchingSupport = new BatchingSupport();
   private static final HistogramSerializer _histogramSerializer = new Base64CompressedHistogramSerializer();
@@ -66,19 +56,16 @@ public abstract class AbstractBenchmark {
             return t;
           }
         });
-    final EngineBuilder builder = new EngineBuilder().setTaskExecutor(scheduler).setTimerScheduler(scheduler);
-    builder.setPlanDeactivationListener(_batchingSupport);
-    builder.setEngineProperty(Engine.MAX_CONCURRENT_PLANS, config.CONCURRENCY_LEVEL);
-    final Engine engine = builder.build();
+    initializeExecutionThreadpool(scheduler);
     try {
-      doRunBenchmark(engine, config);
+      doRunBenchmark(config);
     } finally {
-      engine.shutdown();
       scheduler.shutdownNow();
     }
   }
 
-  abstract Task<?> createPlan();
+  abstract void initializeExecutionThreadpool(ExecutorService threadpool);
+  abstract CompletableFuture createPlan();
 
   private int N(BenchmarkConfig config) {
     if (config instanceof FullLoadBenchmarkConfig) {
@@ -104,7 +91,7 @@ public abstract class AbstractBenchmark {
     }
   }
 
-  protected void doRunBenchmark(final Engine engine, BenchmarkConfig config) throws Exception {
+  protected void doRunBenchmark(BenchmarkConfig config) throws Exception {
 
     final int N = N(config);
     final int warmUpN = warmUpN(config);
@@ -115,22 +102,14 @@ public abstract class AbstractBenchmark {
     LOG.info("Number of cores: " + Runtime.getRuntime().availableProcessors());
     LOG.info("Configuration: " + config);
 
-    Task<?> probe = createPlan();
-    engine.run(probe);
-    probe.await();
-
-    final int numberOfTasks = probe.getTrace().getTraceMap().size();
-
-    LOG.info("Number of tasks per plan: " + numberOfTasks);
-
-    final Exchanger<Optional<Task<?>>> exchanger = new Exchanger<>();
+    final Exchanger<Optional<CompletableFuture>> exchanger = new Exchanger<>();
     Thread histogramCollector = new Thread(() -> {
       try {
-        Optional<Task<?>> t = exchanger.exchange(Optional.empty());
+        Optional<CompletableFuture> t = exchanger.exchange(Optional.empty());
         while (t.isPresent()) {
-          Task<?> task = t.get();
-          task.await();
-          recordCompletionTimes(planHistogram, taskHistogram, task);
+          CompletableFuture task = t.get();
+          task.join();
+          recordCompletionTimes(planHistogram, taskHistogram, (CompletableFuturesPerfLarge.CompletableFutureMonitor) task);
           t = exchanger.exchange(Optional.empty());
         }
       } catch (Exception e) {
@@ -140,13 +119,13 @@ public abstract class AbstractBenchmark {
 
     histogramCollector.start();
 
-    Task<?> t = null;
+    CompletableFuture t = null;
     LOG.info("Warming up using " + warmUpN + " plan execution");
     System.out.print("Progress[");
     Stepper warmUpPercentage = new Stepper(0.1, warmUpN);
     for (int i = 0; i < warmUpN; i++) {
       t = createPlan();
-      config.runTask(engine, t);
+      config.runTask(t);
       warmUpPercentage.isNewStep(i).ifPresent(pct -> {
         System.out.print(".");
       });
@@ -163,10 +142,9 @@ public abstract class AbstractBenchmark {
     long start = System.nanoTime();
     for (int i = 0; i < N; i++) {
       t = createPlan();
+      config.runTask(t);
 
-      config.runTask(engine, t);
-
-      final Task<?> task = t;
+      final CompletableFuture task = t;
       sampler.isNewStep(i).ifPresent(s -> {
         try {
           exchanger.exchange(Optional.of(task));
@@ -273,9 +251,8 @@ public abstract class AbstractBenchmark {
     return new Histogram(1, 10000000000L, 3);
   }
 
-  private void recordCompletionTimes(final Histogram planHistogram, Histogram taskHistogram, Task<?> task) {
-    ShallowTrace st = task.getShallowTrace();
-    planHistogram.recordValue(st.getNativeEndNanos() - st.getNativeStartNanos());
+  private void recordCompletionTimes(final Histogram planHistogram, Histogram taskHistogram, CompletableFuturesPerfLarge.CompletableFutureMonitor task) {
+    planHistogram.recordValue(task.getEndNs() - task.getStartNs());
   }
 
   static class FullLoadBenchmarkConfig extends BenchmarkConfig {
@@ -284,8 +261,8 @@ public abstract class AbstractBenchmark {
     int N = 1000000;
 
     @Override
-    public void runTask(Engine engine, Task<?> t) {
-      engine.blockingRun(t);
+    public void runTask(CompletableFuture t) {
+      t.join();
     }
 
     @Override
@@ -310,16 +287,15 @@ public abstract class AbstractBenchmark {
 
     private long lastNano = 0;
     @Override
-    public void runTask(Engine engine, Task<?> t) throws InterruptedException {
-      initArrivalProcess();
-      if (lastNano == 0) {
-        lastNano = System.nanoTime();
-      }
-      engine.run(t);
-      long nextNano = lastNano + arrivalProcess.nanosToNextEvent();
-      long actualNano = waitUntil(nextNano);
-      planExecutionAccuracy.recordValue(Math.abs(actualNano - nextNano));
-      lastNano = nextNano;
+    public void runTask(CompletableFuture t) throws InterruptedException {
+        initArrivalProcess();
+        if (lastNano == 0) {
+            lastNano = System.nanoTime();
+        }
+        long nextNano = lastNano + arrivalProcess.nanosToNextEvent();
+        long actualNano = waitUntil(nextNano);
+        planExecutionAccuracy.recordValue(Math.abs(actualNano - nextNano));
+        lastNano = nextNano;
     }
 
     private void initArrivalProcess() {
@@ -350,7 +326,7 @@ public abstract class AbstractBenchmark {
     int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors() / 2 + 1;
     double sampleRate = 0.001;
 
-    abstract public void runTask(Engine engine, Task<?> t) throws InterruptedException;
+    abstract public void runTask(CompletableFuture t) throws InterruptedException;
 
     abstract public void wrapUp();
 

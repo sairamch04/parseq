@@ -32,7 +32,7 @@ public class PerfLarge extends AbstractBenchmark {
 
   private Task<?> task() {
     return Task.value("kldfjlajflskjflsjfslkajflkasj").map("length", s -> s.length()).map("+1", s -> s + 1)
-        .map("+2", s -> s + 2).map("+3", s -> s + 3).shareable().recoverWith(t -> Task.value(0))
+        .map("+2", s -> s + 2).map("+3", s -> s + 3)
         .flatMap(x -> Task.value(x * 40)).map(x -> x -10);
   }
 
