@@ -30,11 +30,11 @@ import java.util.Optional;
 import java.util.concurrent.*;
 
 
-public abstract class AbstractCompletableFuturesBenchmark {
+public abstract class AbstractFuturesBenchmark {
 
   public static final String BENCHMARK_TEST_RESULTS_LOG_PREFIX = "Benchmark test results -> ";
 
-  private static final Logger LOG = LoggerFactory.getLogger(AbstractCompletableFuturesBenchmark.class);
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractFuturesBenchmark.class);
 
   private final BatchingSupport _batchingSupport = new BatchingSupport();
   private static final HistogramSerializer _histogramSerializer = new Base64CompressedHistogramSerializer();
@@ -65,7 +65,7 @@ public abstract class AbstractCompletableFuturesBenchmark {
   }
 
   abstract void initializeExecutionThreadpool(ExecutorService threadpool);
-  abstract CompletableFuture createPlan();
+  abstract TaskMonitor createPlan();
 
   private int N(BenchmarkConfig config) {
     if (config instanceof FullLoadBenchmarkConfig) {
@@ -102,14 +102,14 @@ public abstract class AbstractCompletableFuturesBenchmark {
     LOG.info("Number of cores: " + Runtime.getRuntime().availableProcessors());
     LOG.info("Configuration: " + config);
 
-    final Exchanger<Optional<CompletableFuture>> exchanger = new Exchanger<>();
+    final Exchanger<Optional<TaskMonitor>> exchanger = new Exchanger<>();
     Thread histogramCollector = new Thread(() -> {
       try {
-        Optional<CompletableFuture> t = exchanger.exchange(Optional.empty());
+        Optional<TaskMonitor> t = exchanger.exchange(Optional.empty());
         while (t.isPresent()) {
-          CompletableFuture task = t.get();
-          task.join();
-          recordCompletionTimes(planHistogram, taskHistogram, (CompletableFuturesPerfLarge.CompletableFutureMonitor) task);
+          TaskMonitor task = t.get();
+          task.await();
+          recordCompletionTimes(planHistogram, taskHistogram, task);
           t = exchanger.exchange(Optional.empty());
         }
       } catch (Exception e) {
@@ -119,7 +119,7 @@ public abstract class AbstractCompletableFuturesBenchmark {
 
     histogramCollector.start();
 
-    CompletableFuture t = null;
+    TaskMonitor t = null;
     LOG.info("Warming up using " + warmUpN + " plan execution");
     System.out.print("Progress[");
     Stepper warmUpPercentage = new Stepper(0.1, warmUpN);
@@ -144,7 +144,7 @@ public abstract class AbstractCompletableFuturesBenchmark {
       t = createPlan();
       config.runTask(t);
 
-      final CompletableFuture task = t;
+      final TaskMonitor task = t;
       sampler.isNewStep(i).ifPresent(s -> {
         try {
           exchanger.exchange(Optional.of(task));
@@ -251,8 +251,8 @@ public abstract class AbstractCompletableFuturesBenchmark {
     return new Histogram(1, 10000000000L, 3);
   }
 
-  private void recordCompletionTimes(final Histogram planHistogram, Histogram taskHistogram, CompletableFuturesPerfLarge.CompletableFutureMonitor task) {
-    planHistogram.recordValue(task.getEndNs() - task.getStartNs());
+  private void recordCompletionTimes(final Histogram planHistogram, Histogram taskHistogram, TaskMonitor task) {
+    planHistogram.recordValue(Math.max(task.getEndNs() - task.getStartNs(), 1));
   }
 
   static class FullLoadBenchmarkConfig extends BenchmarkConfig {
@@ -261,8 +261,8 @@ public abstract class AbstractCompletableFuturesBenchmark {
     int N = 1000000;
 
     @Override
-    public void runTask(CompletableFuture t) {
-      t.join();
+    public void runTask(TaskMonitor t) {
+      t.await();
     }
 
     @Override
@@ -287,7 +287,7 @@ public abstract class AbstractCompletableFuturesBenchmark {
 
     private long lastNano = 0;
     @Override
-    public void runTask(CompletableFuture t) throws InterruptedException {
+    public void runTask(TaskMonitor t) throws InterruptedException {
         initArrivalProcess();
         if (lastNano == 0) {
             lastNano = System.nanoTime();
@@ -326,7 +326,7 @@ public abstract class AbstractCompletableFuturesBenchmark {
     int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors() / 2 + 1;
     double sampleRate = 0.001;
 
-    abstract public void runTask(CompletableFuture t) throws InterruptedException;
+    abstract public void runTask(TaskMonitor t) throws InterruptedException;
 
     abstract public void wrapUp();
 

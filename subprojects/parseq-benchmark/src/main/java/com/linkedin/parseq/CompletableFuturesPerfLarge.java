@@ -3,7 +3,7 @@ package com.linkedin.parseq;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-public class CompletableFuturesPerfLarge extends AbstractCompletableFuturesBenchmark {
+public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
 
     private ExecutorService threadpool;
 
@@ -20,13 +20,13 @@ public class CompletableFuturesPerfLarge extends AbstractCompletableFuturesBench
     }
 
     @Override
-    CompletableFuture createPlan() {
+    TaskMonitor createPlan() {
         int taskCount = 20;
         CompletableFuture[] tasks = new CompletableFuture[taskCount];
         for (int i = 0; i < taskCount; i++) {
             tasks[i] = createTask();
         }
-        return new CompletableFutureMonitor(CompletableFuture.allOf(tasks));
+        return new TaskMonitorImpl(CompletableFuture.allOf(tasks));
     }
 
     private CompletableFuture createTask() {
@@ -36,12 +36,12 @@ public class CompletableFuturesPerfLarge extends AbstractCompletableFuturesBench
                         .thenCompose(x -> CompletableFuture.completedFuture(x * 40)).thenApply(x -> x - 10);
     }
 
-    static class CompletableFutureMonitor extends CompletableFuture {
+    static class TaskMonitorImpl implements TaskMonitor {
         private long startNs;
         private long endNs;
         private CompletableFuture task;
 
-        public CompletableFutureMonitor(CompletableFuture task) {
+        public TaskMonitorImpl(CompletableFuture task) {
             this.startNs = System.nanoTime();
             this.task = task;
             task.whenComplete((r, e) -> {
@@ -50,8 +50,8 @@ public class CompletableFuturesPerfLarge extends AbstractCompletableFuturesBench
         }
 
         @Override
-        public Object join() {
-            return task.join();
+        public void await() {
+            task.join();
         }
 
         public long getStartNs() {
