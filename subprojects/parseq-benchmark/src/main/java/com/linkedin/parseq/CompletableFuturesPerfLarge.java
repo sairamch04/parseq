@@ -23,10 +23,11 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
     TaskMonitor createPlan() {
         int taskCount = 20;
         CompletableFuture[] tasks = new CompletableFuture[taskCount];
+        long startNs = System.nanoTime();
         for (int i = 0; i < taskCount; i++) {
             tasks[i] = createTask();
         }
-        return new TaskMonitorImpl(CompletableFuture.allOf(tasks));
+        return new TaskMonitorImpl(CompletableFuture.allOf(tasks), startNs);
     }
 
     private CompletableFuture createTask() {
@@ -41,8 +42,8 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
         private long endNs;
         private CompletableFuture task;
 
-        public TaskMonitorImpl(CompletableFuture task) {
-            this.startNs = System.nanoTime();
+        public TaskMonitorImpl(CompletableFuture task, long startNs) {
+            this.startNs = startNs;
             this.task = task;
             task.whenComplete((r, e) -> {
                 endNs = System.nanoTime();

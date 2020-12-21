@@ -26,10 +26,11 @@ public class ListenableFuturesPerfLarge extends AbstractFuturesBenchmark {
     TaskMonitor createPlan() {
         int taskCount = 20;
         List<ListenableFuture<Integer>> tasks = new ArrayList<>();
+        long startNs = System.nanoTime();
         for (int i = 0; i < taskCount; i++) {
             tasks.add(createTask());
         }
-        return new TaskMonitorImpl(FluentFuture.from(Futures.allAsList(tasks)));
+        return new TaskMonitorImpl(FluentFuture.from(Futures.allAsList(tasks)), startNs);
     }
 
     private FluentFuture<Integer> createTask() {
@@ -47,7 +48,8 @@ public class ListenableFuturesPerfLarge extends AbstractFuturesBenchmark {
         private long endNs;
         private ListenableFuture<List<Integer>> task;
 
-        public TaskMonitorImpl(FluentFuture<List<Integer>> task) {
+        public TaskMonitorImpl(FluentFuture<List<Integer>> task, long startNs) {
+            this.startNs = startNs;
             this.task = task;
             task.addCallback(new FutureCallback<List<Integer>>() {
                 @Override
@@ -60,7 +62,6 @@ public class ListenableFuturesPerfLarge extends AbstractFuturesBenchmark {
                     endNs = System.nanoTime();
                 }
             }, MoreExecutors.directExecutor());
-            this.startNs = System.nanoTime();
         }
 
         public long getStartNs() {
