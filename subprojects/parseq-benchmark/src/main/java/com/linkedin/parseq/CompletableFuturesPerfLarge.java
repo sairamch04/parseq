@@ -25,7 +25,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
         CompletableFuture[] tasks = new CompletableFuture[taskCount];
         long startNs = System.nanoTime();
         for (int i = 0; i < taskCount; i++) {
-            tasks[i] = createTask();
+            tasks[i] = createIOTask();
         }
         return new TaskMonitorImpl(CompletableFuture.allOf(tasks), startNs);
     }
@@ -35,6 +35,17 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
                         .thenApply(s -> s.length()).thenApply(l -> l + 1)
                         .thenApply(l -> l + 2).thenApply(l -> l + 3)
                         .thenCompose(x -> CompletableFuture.completedFuture(x * 40)).thenApply(x -> x - 10);
+    }
+
+    private CompletableFuture createIOTask() {
+        return CompletableFuture.supplyAsync(() -> "kldfjlajflskjflsjfslkajflkasj", threadpool)
+                .thenCompose(s -> AsyncIOTask.getAsyncIOCompletableFuture())
+                .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
+                .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
+                .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
+                .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
+                .thenComposeAsync(x -> CompletableFuture.completedFuture(x * 40), threadpool)
+                .thenApply(x -> x - 10);
     }
 
     static class TaskMonitorImpl implements TaskMonitor {

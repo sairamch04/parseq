@@ -25,7 +25,7 @@ public class PerfLarge extends AbstractBenchmark {
   Task<?> createPlan() {
     List<Task<?>> l = new ArrayList<>();
     for (int i = 0; i < 20; i++) {
-      l.add(task());
+      l.add(ioTask());
     }
     return Tasks.par(l);
   }
@@ -36,4 +36,14 @@ public class PerfLarge extends AbstractBenchmark {
         .flatMap(x -> Task.value(x * 40)).map(x -> x -10);
   }
 
+  private Task<?> ioTask() {
+    return Task.value("kldfjlajflskjflsjfslkajflkasj")
+            .flatMap("IO", x -> AsyncIOTask.getAsyncIOTask())
+            .flatMap("IO2", x -> AsyncIOTask.getAsyncIOTask())
+            .flatMap("IO3", x -> AsyncIOTask.getAsyncIOTask())
+            .flatMap("IO4", x -> AsyncIOTask.getAsyncIOTask())
+            .flatMap("IO5", x -> AsyncIOTask.getAsyncIOTask())
+            .flatMap(x -> Task.value(x * 40))
+            .map(x -> x -10);
+  }
 }

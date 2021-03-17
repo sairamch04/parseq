@@ -28,7 +28,7 @@ public class ListenableFuturesPerfLarge extends AbstractFuturesBenchmark {
         List<ListenableFuture<Integer>> tasks = new ArrayList<>();
         long startNs = System.nanoTime();
         for (int i = 0; i < taskCount; i++) {
-            tasks.add(createTask());
+            tasks.add(createIOTask());
         }
         return new TaskMonitorImpl(FluentFuture.from(Futures.allAsList(tasks)), startNs);
     }
@@ -40,6 +40,17 @@ public class ListenableFuturesPerfLarge extends AbstractFuturesBenchmark {
                 .transform(l -> l + 2, MoreExecutors.directExecutor())
                 .transform(l -> l + 3, MoreExecutors.directExecutor())
                 .transformAsync(x -> Futures.immediateFuture(x * 40), MoreExecutors.directExecutor())
+                .transform(x -> x - 10, MoreExecutors.directExecutor());
+    }
+
+    private FluentFuture<Integer> createIOTask() {
+        return FluentFuture.from(this.threadpool.submit(() -> "kldfjlajflskjflsjfslkajflkasj"))
+                .transformAsync(x -> AsyncIOTask.getAsyncIOListenableFuture(), MoreExecutors.directExecutor())
+                .transformAsync(x -> AsyncIOTask.getAsyncIOListenableFuture(), threadpool)
+                .transformAsync(x -> AsyncIOTask.getAsyncIOListenableFuture(), threadpool)
+                .transformAsync(x -> AsyncIOTask.getAsyncIOListenableFuture(), threadpool)
+                .transformAsync(x -> AsyncIOTask.getAsyncIOListenableFuture(), threadpool)
+                .transformAsync(x -> Futures.immediateFuture(x * 40), threadpool)
                 .transform(x -> x - 10, MoreExecutors.directExecutor());
     }
 
