@@ -39,7 +39,11 @@ public class ListenableFuturesPerfLarge extends AbstractFuturesBenchmark {
     }
 
     private FluentFuture<?> createIOPlan() {
-        return createIOTask();
+        List<ListenableFuture<String>> tasks = new ArrayList<>();
+        for (int i = 0; i < taskCount; i++) {
+            tasks.add(createIOTask());
+        }
+        return FluentFuture.from(Futures.allAsList(tasks));
     }
 
     private FluentFuture<String> createComputeOnlyTask(String input) {
