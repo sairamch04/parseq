@@ -35,11 +35,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
     }
 
     private CompletableFuture<?> createIOPlan() {
-        CompletableFuture<?>[] tasks = new CompletableFuture[taskCount];
-        for (int i = 0; i < taskCount; i++) {
-            tasks[i] = createIOTask();
-        }
-        return CompletableFuture.allOf(tasks);
+       return createIOTask();
 
     }
 

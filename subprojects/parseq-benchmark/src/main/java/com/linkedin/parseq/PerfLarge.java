@@ -35,11 +35,7 @@ public class PerfLarge extends AbstractBenchmark {
   }
 
   private Task<?> ioPlan() {
-    List<Task<?>> l = new ArrayList<>();
-    for (int i = 0; i < 20; i++) {
-      l.add(ioTask());
-    }
-    return Tasks.par(l);
+    return ioTask();
 
   }
 
