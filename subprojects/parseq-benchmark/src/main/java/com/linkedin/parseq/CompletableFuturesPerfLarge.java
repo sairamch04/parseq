@@ -6,6 +6,7 @@ import java.util.concurrent.ExecutorService;
 public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
 
     private ExecutorService threadpool;
+    private static final int taskCount = 20;
 
     public static void main(String[] args) throws Exception {
         ConstantThroughputBenchmarkConfig cfg = new ConstantThroughputBenchmarkConfig();
@@ -21,23 +22,36 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
 
     @Override
     TaskMonitor createPlan() {
-        int taskCount = 20;
-        CompletableFuture[] tasks = new CompletableFuture[taskCount];
-        long startNs = System.nanoTime();
+        return new TaskMonitorImpl(createComputeOnlyPlan(), System.nanoTime());
+    }
+
+    private CompletableFuture<String> createComputeOnlyTask(String input) {
+        return CompletableFuture.supplyAsync(() -> input, threadpool)
+            .thenApply(s -> s.length()).thenApply(l -> l + 1)
+            .thenApply(l -> l + 2).thenApply(l -> l + 3)
+            .thenCompose(x -> CompletableFuture.completedFuture(x * 40)).thenApply(x -> x - 10)
+            .thenApply(String::valueOf);
+    }
+
+    private CompletableFuture<?> createComputeOnlyPlan() {
+        CompletableFuture<String> task = CompletableFuture
+            .completedFuture("kldfjlajflskjflsjfslkajflkasj");
+        for (int i = 0; i < taskCount; i++) {
+            task.thenComposeAsync(this::createComputeOnlyTask);
+        }
+        return task;
+    }
+
+    private CompletableFuture<?> createIOPlan() {
+        CompletableFuture<?>[] tasks = new CompletableFuture[taskCount];
         for (int i = 0; i < taskCount; i++) {
             tasks[i] = createIOTask();
         }
-        return new TaskMonitorImpl(CompletableFuture.allOf(tasks), startNs);
+        return CompletableFuture.allOf(tasks);
+
     }
 
-    private CompletableFuture createTask() {
-        return CompletableFuture.supplyAsync(() -> "kldfjlajflskjflsjfslkajflkasj", threadpool)
-                        .thenApply(s -> s.length()).thenApply(l -> l + 1)
-                        .thenApply(l -> l + 2).thenApply(l -> l + 3)
-                        .thenCompose(x -> CompletableFuture.completedFuture(x * 40)).thenApply(x -> x - 10);
-    }
-
-    private CompletableFuture createIOTask() {
+    private CompletableFuture<?> createIOTask() {
         return CompletableFuture.supplyAsync(() -> "kldfjlajflskjflsjfslkajflkasj", threadpool)
                 .thenCompose(s -> AsyncIOTask.getAsyncIOCompletableFuture())
                 .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
