@@ -25,14 +25,6 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
         return new TaskMonitorImpl(createComputeOnlyPlan(), System.nanoTime());
     }
 
-    private CompletableFuture<String> createComputeOnlyTask(String input) {
-        return CompletableFuture.supplyAsync(() -> input, threadpool)
-            .thenApply(s -> s.length()).thenApply(l -> l + 1)
-            .thenApply(l -> l + 2).thenApply(l -> l + 3)
-            .thenCompose(x -> CompletableFuture.completedFuture(x * 40)).thenApply(x -> x - 10)
-            .thenApply(String::valueOf);
-    }
-
     private CompletableFuture<?> createComputeOnlyPlan() {
         CompletableFuture<String> task = CompletableFuture
             .completedFuture("kldfjlajflskjflsjfslkajflkasj");
@@ -49,6 +41,14 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
         }
         return CompletableFuture.allOf(tasks);
 
+    }
+
+    private CompletableFuture<String> createComputeOnlyTask(String input) {
+        return CompletableFuture.supplyAsync(() -> input, threadpool)
+            .thenApply(s -> s.length()).thenApply(l -> l + 1)
+            .thenApply(l -> l + 2).thenApply(l -> l + 3)
+            .thenCompose(x -> CompletableFuture.completedFuture(x * 40)).thenApply(x -> x - 10)
+            .thenApply(String::valueOf);
     }
 
     private CompletableFuture<?> createIOTask() {

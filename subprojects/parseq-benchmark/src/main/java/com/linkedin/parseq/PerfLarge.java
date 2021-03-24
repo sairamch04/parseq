@@ -34,12 +34,6 @@ public class PerfLarge extends AbstractBenchmark {
     return stringTask;
   }
 
-  private Task<String> task(String input) {
-    return Task.value(input).map("length", s -> s.length()).map("+1", s -> s + 1)
-        .map("+2", s -> s + 2).map("+3", s -> s + 3)
-        .flatMap(x -> Task.value(x * 40)).map(x -> x -10).map(String::valueOf);
-  }
-
   private Task<?> ioPlan() {
     List<Task<?>> l = new ArrayList<>();
     for (int i = 0; i < 20; i++) {
@@ -47,6 +41,12 @@ public class PerfLarge extends AbstractBenchmark {
     }
     return Tasks.par(l);
 
+  }
+
+  private Task<String> task(String input) {
+    return Task.value(input).map("length", s -> s.length()).map("+1", s -> s + 1)
+        .map("+2", s -> s + 2).map("+3", s -> s + 3)
+        .flatMap(x -> Task.value(x * 40)).map(x -> x -10).map(String::valueOf);
   }
 
   private Task<?> ioTask() {
