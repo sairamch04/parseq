@@ -29,7 +29,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
         CompletableFuture<String> task = CompletableFuture
             .completedFuture("kldfjlajflskjflsjfslkajflkasj");
         for (int i = 0; i < taskCount; i++) {
-            task.thenComposeAsync(this::createComputeOnlyTask);
+            task = task.thenComposeAsync(this::createComputeOnlyTask);
         }
         return task;
     }
