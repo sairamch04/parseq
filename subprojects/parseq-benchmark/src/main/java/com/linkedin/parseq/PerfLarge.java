@@ -23,7 +23,7 @@ public class PerfLarge extends AbstractBenchmark {
 
   @Override
   Task<?> createPlan() {
-    return computeOnlyPlan();
+    return createParallelIOPlan();
   }
 
   private Task<?> computeOnlyPlan() {
@@ -34,14 +34,25 @@ public class PerfLarge extends AbstractBenchmark {
     return stringTask;
   }
 
-  private Task<?> ioPlan() {
+  private Task<?> createParallelIOPlan() {
     List<Task<?>> l = new ArrayList<>();
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 10; i++) {
       l.add(ioTask());
     }
     return Tasks.par(l);
 
   }
+
+  private Task<?> createParallelIOWithComputePlan() {
+    List<Task<?>> l = new ArrayList<>();
+    for (int i = 0; i < 10; i++) {
+      l.add(ioTask().flatMap(x -> Task.value(x * 40))
+          .map(x -> x - 10));
+    }
+    return Tasks.par(l);
+
+  }
+
 
   private Task<String> task(String input) {
     return Task.value(input).map("length", s -> s.length()).map("+1", s -> s + 1)
@@ -49,14 +60,12 @@ public class PerfLarge extends AbstractBenchmark {
         .flatMap(x -> Task.value(x * 40)).map(x -> x -10).map(String::valueOf);
   }
 
-  private Task<?> ioTask() {
+  private Task<Integer> ioTask() {
     return Task.value("kldfjlajflskjflsjfslkajflkasj")
-            .flatMap("IO", x -> AsyncIOTask.getAsyncIOTask())
-            .flatMap("IO2", x -> AsyncIOTask.getAsyncIOTask())
-            .flatMap("IO3", x -> AsyncIOTask.getAsyncIOTask())
-            .flatMap("IO4", x -> AsyncIOTask.getAsyncIOTask())
-            .flatMap("IO5", x -> AsyncIOTask.getAsyncIOTask())
-            .flatMap(x -> Task.value(x * 40))
-            .map(x -> x -10);
+        .flatMap("IO", x -> AsyncIOTask.getAsyncIOTask())
+        .flatMap("IO2", x -> AsyncIOTask.getAsyncIOTask())
+        .flatMap("IO3", x -> AsyncIOTask.getAsyncIOTask())
+        .flatMap("IO4", x -> AsyncIOTask.getAsyncIOTask())
+        .flatMap("IO5", x -> AsyncIOTask.getAsyncIOTask());
   }
 }
