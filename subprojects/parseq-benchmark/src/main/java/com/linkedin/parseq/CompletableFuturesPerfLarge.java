@@ -35,7 +35,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
 
     private CompletableFuture<?> createParallelIOWithComputePlan() {
         CompletableFuture<?>[] tasks = new CompletableFuture[5];
-        for (int i = 0; i <10; i++) {
+        for (int i = 0; i < 20; i++) {
             tasks[i] = createIOTask()
                 .thenComposeAsync(x -> CompletableFuture.completedFuture(x * 40), threadpool)
                 .thenApply(x -> x - 10);
@@ -46,7 +46,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
 
     private CompletableFuture<?> createParallelIOPlan() {
         CompletableFuture<?>[] tasks = new CompletableFuture[5];
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 20; i++) {
             tasks[i] = createIOTask();
         }
         return CompletableFuture.allOf(tasks);
