@@ -23,7 +23,7 @@ public class PerfLarge extends AbstractBenchmark {
 
   @Override
   Task<?> createPlan() {
-    return createParallelIOPlan();
+    return computeOnlyPlan();
   }
 
   private Task<?> computeOnlyPlan() {
@@ -36,7 +36,7 @@ public class PerfLarge extends AbstractBenchmark {
 
   private Task<?> createParallelIOPlan() {
     List<Task<?>> l = new ArrayList<>();
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 10; i++) {
       l.add(ioTask());
     }
     return Tasks.par(l);
@@ -45,7 +45,7 @@ public class PerfLarge extends AbstractBenchmark {
 
   private Task<?> createParallelIOWithComputePlan() {
     List<Task<?>> l = new ArrayList<>();
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 10; i++) {
       l.add(ioTask().flatMap(x -> Task.value(x * 40))
           .map(x -> x - 10));
     }

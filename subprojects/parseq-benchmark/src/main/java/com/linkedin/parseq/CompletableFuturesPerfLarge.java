@@ -1,5 +1,7 @@
 package com.linkedin.parseq;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -21,7 +23,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
 
     @Override
     TaskMonitor createPlan() {
-        return new TaskMonitorImpl(createParallelIOPlan(), System.nanoTime());
+        return new TaskMonitorImpl(createParallelIOWithComputePlan(), System.nanoTime());
     }
 
     private CompletableFuture<?> createSerialComputeOnlyPlan() {
@@ -34,22 +36,22 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
     }
 
     private CompletableFuture<?> createParallelIOWithComputePlan() {
-        CompletableFuture<?>[] tasks = new CompletableFuture[5];
-        for (int i = 0; i < 20; i++) {
-            tasks[i] = createIOTask()
+        List<CompletableFuture<?>> completableFutures = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            completableFutures.add(createIOTask()
                 .thenComposeAsync(x -> CompletableFuture.completedFuture(x * 40), threadpool)
-                .thenApply(x -> x - 10);
+                .thenApply(x -> x - 10));
         }
-        return CompletableFuture.allOf(tasks);
+        return CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0]));
 
     }
 
     private CompletableFuture<?> createParallelIOPlan() {
-        CompletableFuture<?>[] tasks = new CompletableFuture[5];
-        for (int i = 0; i < 20; i++) {
-            tasks[i] = createIOTask();
+        List<CompletableFuture<?>> completableFutures = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            completableFutures.add(createIOTask());
         }
-        return CompletableFuture.allOf(tasks);
+        return CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0]));
 
     }
 
