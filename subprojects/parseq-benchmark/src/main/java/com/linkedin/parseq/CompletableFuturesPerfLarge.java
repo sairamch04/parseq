@@ -68,6 +68,7 @@ public class CompletableFuturesPerfLarge extends AbstractFuturesBenchmark {
             .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
             .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
             .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
+            .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool)
             .thenComposeAsync(s -> AsyncIOTask.getAsyncIOCompletableFuture(), threadpool);
     }
 
